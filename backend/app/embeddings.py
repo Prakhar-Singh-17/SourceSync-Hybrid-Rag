@@ -2,6 +2,9 @@ from google import genai
 from google.genai import types
 
 
+EMBEDDING_BATCH_SIZE = 1
+
+
 class GeminiEmbedder:
     def __init__(self, api_key: str, model: str) -> None:
         self._client = genai.Client(api_key=api_key)
@@ -10,12 +13,21 @@ class GeminiEmbedder:
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        response = self._client.models.embed_content(
-            model=self._model,
-            contents=texts,
-            config=types.EmbedContentConfig(taskType="RETRIEVAL_DOCUMENT"),
-        )
-        return [embedding.values for embedding in response.embeddings]
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+            batch = texts[start : start + EMBEDDING_BATCH_SIZE]
+            response = self._client.models.embed_content(
+                model=self._model,
+                contents=batch,
+                config=types.EmbedContentConfig(taskType="RETRIEVAL_DOCUMENT"),
+            )
+            batch_vectors = [embedding.values for embedding in response.embeddings]
+            if len(batch_vectors) != len(batch):
+                raise RuntimeError(
+                    f"Gemini returned {len(batch_vectors)} embeddings for {len(batch)} texts."
+                )
+            vectors.extend(batch_vectors)
+        return vectors
 
     def embed_query(self, text: str) -> list[float]:
         response = self._client.models.embed_content(
