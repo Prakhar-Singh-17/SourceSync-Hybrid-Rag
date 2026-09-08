@@ -1,4 +1,5 @@
 import httpx
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from qdrant_client import AsyncQdrantClient
 
@@ -11,6 +12,7 @@ from app.state import session_store, settings
 
 
 router = APIRouter(prefix="/api/repositories", tags=["repositories"])
+logger = logging.getLogger(__name__)
 
 
 def require_services() -> None:
@@ -49,7 +51,14 @@ async def ingest_github_repository(
                         raise HTTPException(status_code=413, detail="Repository archives must be 50 MB or smaller.")
     except HTTPException:
         raise
+    except httpx.HTTPStatusError as error:
+        logger.exception("GitHub archive request failed for %s", repository["url"])
+        raise HTTPException(
+            status_code=502,
+            detail=f"GitHub returned HTTP {error.response.status_code} while downloading the repository.",
+        ) from error
     except httpx.HTTPError as error:
+        logger.exception("GitHub archive download failed for %s", repository["url"])
         raise HTTPException(status_code=502, detail="Unable to download the GitHub repository.") from error
 
     qdrant = AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
@@ -65,6 +74,7 @@ async def ingest_github_repository(
     except HTTPException:
         raise
     except Exception as error:
+        logger.exception("Repository ingestion failed for %s", repository["url"])
         raise HTTPException(status_code=502, detail="Repository ingestion failed.") from error
     finally:
         await qdrant.close()
