@@ -16,7 +16,7 @@ services:
       - key: GEMINI_MODEL
         value: gemini-3.6-flash
       - key: EMBEDDING_MODEL
-        value: gemini-embedding-001
+        value: gemini-embedding-2
       - key: QDRANT_COLLECTION
         value: sourcesync_chunks
       - key: CORS_ORIGINS
