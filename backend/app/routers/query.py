@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from google.genai.errors import ServerError
 from qdrant_client import AsyncQdrantClient
 
 from app.answering import GeminiAnswerer
@@ -49,12 +50,17 @@ async def query_sources(
                 logger.exception("Query attempt %s failed", attempt + 1)
                 if attempt == 1:
                     raise
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
         sources = list(dict.fromkeys(
             f"{item['source_name']} - {item['file_path']}" if item.get("file_path") else str(item["source_name"])
             for item in context
         ))
         return {"answer": answer, "sources": sources}
+    except ServerError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini is temporarily unavailable. Please try again shortly.",
+        ) from error
     except Exception as error:
         raise HTTPException(status_code=502, detail="The question could not be answered.") from error
     finally:

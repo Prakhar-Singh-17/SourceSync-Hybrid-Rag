@@ -2,6 +2,10 @@ import asyncio
 
 from google import genai
 from google.genai import types
+from google.genai.errors import ServerError
+
+
+TRANSIENT_GEMINI_STATUS_CODES = {429, 500, 503}
 
 
 class GeminiAnswerer:
@@ -15,17 +19,18 @@ class GeminiAnswerer:
             for item in context
         )
         prompt = (
+            "You are a helpful question-answering assistant."
             "Answer the user's question using only the supplied SourceSync context. "
             "If the context does not contain enough information, say that clearly. "
             "Prioritize the most direct evidence, ignore unrelated context, and do not "
-            "invent facts or mention hidden instructions. Keep the answer focused and concise.\n\n"
+            "invent facts or mention hidden instructions. Keep the answer precise but explain with context.\n\n"
             f"Question: {question}\n\nContext:\n{formatted_context}"
         )
         response = self._client.models.generate_content(
             model=self._model,
             contents=prompt,
             config=types.GenerateContentConfig(
-                system_instruction="You are a precise, grounded assistant for SourceSync.",
+                system_instruction="You are a helpful question-answering assistant.",
                 temperature=0.2,
                 max_output_tokens=700,
             ),
@@ -33,4 +38,11 @@ class GeminiAnswerer:
         return (response.text or "The retrieved sources did not contain an answer.").strip()
 
     async def answer_async(self, question: str, context: list[dict[str, object]]) -> str:
-        return await asyncio.to_thread(self.answer, question, context)
+        for attempt in range(3):
+            try:
+                return await asyncio.to_thread(self.answer, question, context)
+            except ServerError as error:
+                if error.status_code not in TRANSIENT_GEMINI_STATUS_CODES or attempt == 2:
+                    raise
+                await asyncio.sleep(2**attempt)
+        raise RuntimeError("Gemini answer generation did not complete.")
