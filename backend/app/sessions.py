@@ -60,7 +60,8 @@ def set_session_cookie(response: Response, session: Session, secure: bool = Fals
         value=session.session_id,
         max_age=max(0, int((session.expires_at - datetime.now(UTC)).total_seconds())),
         httponly=True,
-        samesite="lax",
+        # Cross-origin frontend/backend requests require None; local HTTP uses Lax.
+        samesite="none" if secure else "lax",
         secure=secure,
     )
 

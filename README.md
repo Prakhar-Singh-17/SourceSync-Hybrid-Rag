@@ -52,6 +52,8 @@ After creating the services, set these values in Render:
 	`false` in local development.
 
 The application uses anonymous in-memory sessions that expire after 60 minutes.
+For the deployed HTTPS services, `SESSION_COOKIE_SECURE=true` also enables the
+cross-origin `SameSite=None` session cookie required by browser fetch requests.
 No login, Redis, queue, or worker service is required for this version.
 
 ## Current limits
