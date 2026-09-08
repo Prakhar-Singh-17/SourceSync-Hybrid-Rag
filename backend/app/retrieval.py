@@ -7,9 +7,14 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from app.embeddings import GeminiEmbedder
 
+STOP_WORDS = {
+    "a", "an", "and", "are", "does", "for", "how", "in", "is", "of",
+    "on", "the", "this", "to", "used", "what", "which", "with",
+}
+
 
 def tokenize(text: str) -> list[str]:
-    return re.findall(r"[a-zA-Z0-9_]+", text.lower())
+    return [token for token in re.findall(r"[a-zA-Z0-9_]+", text.lower()) if token not in STOP_WORDS]
 
 
 async def scroll_session_chunks(
@@ -56,7 +61,7 @@ async def retrieve_context(
         collection_name=collection_name,
         query=query_vector,
         query_filter=session_filter,
-        limit=max(limit * 2, 12),
+        limit=max(limit * 2, 8),
         with_payload=True,
     )
     dense_results = [
@@ -84,7 +89,7 @@ async def retrieve_context(
         chunk
         for score, chunk in sorted(zip(lexical_scores, all_chunks), key=lambda pair: pair[0], reverse=True)
         if score > 0
-    ][: max(limit * 2, 12)]
+    ][: max(limit * 2, 8)]
 
     fused: dict[str, tuple[float, dict[str, object]]] = {}
     for rank, chunk in enumerate(dense_results, start=1):

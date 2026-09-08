@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from qdrant_client import AsyncQdrantClient
 
@@ -10,6 +13,7 @@ from app.state import session_store, settings
 
 
 router = APIRouter(prefix="/api/query", tags=["query"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("")
@@ -27,16 +31,25 @@ async def query_sources(
     try:
         if not await qdrant.collection_exists(settings.qdrant_collection):
             return {"answer": "No sources have been indexed for this session yet.", "sources": []}
-        context = await retrieve_context(
-            question=request.question,
-            session_id=session.session_id,
-            qdrant=qdrant,
-            embedder=GeminiEmbedder(settings.gemini_api_key, settings.embedding_model),
-            collection_name=settings.qdrant_collection,
-        )
-        if not context:
-            return {"answer": "No matching sources were found for this session.", "sources": []}
-        answer = await GeminiAnswerer(settings.gemini_api_key, settings.gemini_model).answer_async(request.question, context)
+        for attempt in range(2):
+            try:
+                context = await retrieve_context(
+                    question=request.question,
+                    session_id=session.session_id,
+                    qdrant=qdrant,
+                    embedder=GeminiEmbedder(settings.gemini_api_key, settings.embedding_model),
+                    collection_name=settings.qdrant_collection,
+                    limit=4,
+                )
+                if not context:
+                    return {"answer": "No matching sources were found for this session.", "sources": []}
+                answer = await GeminiAnswerer(settings.gemini_api_key, settings.gemini_model).answer_async(request.question, context)
+                break
+            except Exception:
+                logger.exception("Query attempt %s failed", attempt + 1)
+                if attempt == 1:
+                    raise
+                await asyncio.sleep(0.5)
         sources = list(dict.fromkeys(
             f"{item['source_name']} - {item['file_path']}" if item.get("file_path") else str(item["source_name"])
             for item in context

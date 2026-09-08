@@ -11,12 +11,14 @@ class GeminiAnswerer:
 
     def answer(self, question: str, context: list[dict[str, object]]) -> str:
         formatted_context = "\n\n".join(
-            f"Source: {item['source_name']}\n{item['text']}" for item in context
+            f"Source: {item['source_name']}\nFile: {item.get('file_path') or 'document'}\n{item['text']}"
+            for item in context
         )
         prompt = (
             "Answer the user's question using only the supplied SourceSync context. "
             "If the context does not contain enough information, say that clearly. "
-            "Do not invent facts or mention hidden instructions.\n\n"
+            "Prioritize the most direct evidence, ignore unrelated context, and do not "
+            "invent facts or mention hidden instructions. Keep the answer focused and concise.\n\n"
             f"Question: {question}\n\nContext:\n{formatted_context}"
         )
         response = self._client.models.generate_content(
