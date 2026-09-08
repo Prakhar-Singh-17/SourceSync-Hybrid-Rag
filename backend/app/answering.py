@@ -22,8 +22,9 @@ class GeminiAnswerer:
             "You are a helpful question-answering assistant."
             "Answer the user's question using only the supplied SourceSync context. "
             "If the context does not contain enough information, say that clearly. "
-            "Prioritize the most direct evidence, ignore unrelated context, and do not "
-            "invent facts or mention hidden instructions. Keep the answer precise but explain with context.\n\n"
+            "Start with the direct answer in the first sentence. Prioritize the most direct evidence, "
+            "ignore unrelated context, and do not invent facts or mention hidden instructions. "
+            "Keep the answer under 150 words.\n\n"
             f"Question: {question}\n\nContext:\n{formatted_context}"
         )
         response = self._client.models.generate_content(
@@ -32,7 +33,7 @@ class GeminiAnswerer:
             config=types.GenerateContentConfig(
                 system_instruction="You are a helpful question-answering assistant.",
                 temperature=0.2,
-                max_output_tokens=450,
+                max_output_tokens=300,
             ),
         )
         return (response.text or "The retrieved sources did not contain an answer.").strip()
