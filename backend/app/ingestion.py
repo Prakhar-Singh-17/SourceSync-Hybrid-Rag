@@ -39,7 +39,7 @@ async def ingest_document(
     if not chunks:
         return 0
 
-    vectors = await asyncio.to_thread(embedder.embed_documents, [chunk.text for chunk in chunks])
+    vectors = await embedder.embed_documents_async([chunk.text for chunk in chunks])
     if not vectors:
         return 0
 
@@ -94,7 +94,7 @@ async def ingest_repository(
     points: list[PointStruct] = []
     for start in range(0, len(documents), 100):
         batch = documents[start : start + 100]
-        vectors = await asyncio.to_thread(embedder.embed_documents, [chunk.text for _, chunk in batch])
+        vectors = await embedder.embed_documents_async([chunk.text for _, chunk in batch])
         if len(vectors) != len(batch):
             raise RuntimeError(f"Embedding count mismatch: received {len(vectors)} for {len(batch)} chunks.")
         points.extend(

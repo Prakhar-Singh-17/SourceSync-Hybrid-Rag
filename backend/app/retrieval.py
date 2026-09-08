@@ -57,13 +57,17 @@ async def retrieve_context(
 ) -> list[dict[str, object]]:
     query_vector = await asyncio.to_thread(embedder.embed_query, question)
     session_filter = Filter(must=[FieldCondition(key="session_id", match=MatchValue(value=session_id))])
-    response = await qdrant.query_points(
-        collection_name=collection_name,
-        query=query_vector,
-        query_filter=session_filter,
-        limit=max(limit * 2, 8),
-        with_payload=True,
+    dense_task = asyncio.create_task(
+        qdrant.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            query_filter=session_filter,
+            limit=max(limit * 2, 8),
+            with_payload=True,
+        )
     )
+    lexical_task = asyncio.create_task(scroll_session_chunks(qdrant, collection_name, session_filter))
+    response, all_chunks = await asyncio.gather(dense_task, lexical_task)
     dense_results = [
         {
             "id": str(point.id),
@@ -74,7 +78,6 @@ async def retrieve_context(
         for point in response.points
         if point.payload and point.payload.get("text")
     ]
-    all_chunks = await scroll_session_chunks(qdrant, collection_name, session_filter)
     if not all_chunks:
         return dense_results[:limit]
 

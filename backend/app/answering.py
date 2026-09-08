@@ -32,7 +32,7 @@ class GeminiAnswerer:
             config=types.GenerateContentConfig(
                 system_instruction="You are a helpful question-answering assistant.",
                 temperature=0.2,
-                max_output_tokens=700,
+                max_output_tokens=450,
             ),
         )
         return (response.text or "The retrieved sources did not contain an answer.").strip()

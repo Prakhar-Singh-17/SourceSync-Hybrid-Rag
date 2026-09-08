@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = None
     gemini_api_key: str | None = None
     embedding_model: str = "gemini-embedding-2"
-    gemini_model: str = "gemini-3.6-flash"
+    gemini_model: str = "gemini-3.5-flash"
     qdrant_collection: str = "sourcesync_chunks"
     cors_origins: str = "http://localhost:5173"
     session_ttl_minutes: int = 60
