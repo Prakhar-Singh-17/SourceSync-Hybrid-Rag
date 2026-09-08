@@ -1,0 +1,26 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/*.py[cod]
+backend/tests/
+**/.pytest_cache/
+**/.coverage
+
+# JavaScript
+frontend/node_modules/
+frontend/dist/
+
+# Secrets and local configuration
+.env
+backend/.env
+frontend/.env
+
+# Local tool caches
+.uv-cache/
+.uv-python/
+
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

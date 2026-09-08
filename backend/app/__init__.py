@@ -1,0 +1,1 @@
+"""RepoRAG FastAPI application."""
