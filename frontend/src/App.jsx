@@ -189,7 +189,7 @@ export default function App() {
                 came from.
               </p>
             </header>
-            <main className="mt-12">
+            <main className="mt-8">
               <EmptyState onIndexed={refresh} connecting={connecting} />
             </main>
           </>
