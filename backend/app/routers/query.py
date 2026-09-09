@@ -1,67 +1,47 @@
-import asyncio
+"""Asking a question against the sources indexed in this session."""
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from google.genai.errors import ServerError
-from qdrant_client import AsyncQdrantClient
 
-from app.answering import GeminiAnswerer
-from app.embeddings import GeminiEmbedder
-from app.retrieval import retrieve_context
-from app.schemas import QueryRequest
-from app.sessions import session_cookie
-from app.state import session_store, settings
+from app.deps import current_session, get_pipeline
+from app.schemas import AnswerResponse, QueryRequest
+from app.sessions import Session
+from app.services.pipeline import Pipeline
+from app.services.retry import is_rate_limited, is_retryable
 
-
-router = APIRouter(prefix="/api/query", tags=["query"])
 logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/api/query", tags=["query"])
 
-@router.post("")
-async def query_sources(
+
+@router.post("", response_model=AnswerResponse)
+async def ask_question(
     request: QueryRequest,
-    cookie: str | None = Depends(session_cookie),
-) -> dict[str, object]:
-    session = session_store.require(cookie)
-    if not settings.gemini_api_key:
-        raise HTTPException(status_code=503, detail="Gemini is not configured.")
-    if not settings.qdrant_url or not settings.qdrant_api_key:
-        raise HTTPException(status_code=503, detail="Qdrant is not configured.")
+    session: Session = Depends(current_session),
+    pipeline: Pipeline = Depends(get_pipeline),
+) -> AnswerResponse:
+    """Retrieve, rerank and answer.
 
-    qdrant = AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
+    The whole strategy lives in ``Pipeline.ask``; this handler only translates
+    failures into status codes. Retries have already happened one layer down, so
+    reaching here means the operation genuinely failed.
+    """
     try:
-        if not await qdrant.collection_exists(settings.qdrant_collection):
-            return {"answer": "No sources have been indexed for this session yet.", "sources": []}
-        for attempt in range(2):
-            try:
-                context = await retrieve_context(
-                    question=request.question,
-                    session_id=session.session_id,
-                    qdrant=qdrant,
-                    embedder=GeminiEmbedder(settings.gemini_api_key, settings.embedding_model),
-                    collection_name=settings.qdrant_collection,
-                    limit=4,
-                )
-                if not context:
-                    return {"answer": "No matching sources were found for this session.", "sources": []}
-                answer = await GeminiAnswerer(settings.gemini_api_key, settings.gemini_model).answer_async(request.question, context)
-                break
-            except Exception:
-                logger.exception("Query attempt %s failed", attempt + 1)
-                if attempt == 1:
-                    raise
-                await asyncio.sleep(1)
-        sources = list(dict.fromkeys(
-            f"{item['source_name']} - {item['file_path']}" if item.get("file_path") else str(item["source_name"])
-            for item in context
-        ))
-        return {"answer": answer, "sources": sources}
-    except ServerError as error:
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini is temporarily unavailable. Please try again shortly.",
-        ) from error
+        return await pipeline.ask(session.id, request.question)
     except Exception as error:
+        logger.exception("Query failed")
+        if is_rate_limited(error):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "The daily Gemini request quota for this model has been used up. "
+                    "Try again later, or set GEMINI_MODEL to a model with more headroom."
+                ),
+            ) from error
+        if is_retryable(error):
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini is temporarily unavailable. Try again shortly.",
+            ) from error
         raise HTTPException(status_code=502, detail="The question could not be answered.") from error
-    finally:
-        await qdrant.close()

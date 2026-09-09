@@ -1,72 +1,82 @@
+"""Anonymous temporary sessions, signed rather than stored.
+
+A session exists only to keep one visitor's sources separate from everyone
+else's.  There are no accounts and nothing personal in it, so there is nothing
+worth keeping on the server: the cookie itself carries the session id and its
+expiry, signed with HMAC so a visitor cannot forge one and read another
+session's documents.
+
+The previous design held sessions in a dictionary in memory, which broke in a
+specific and confusing way on a free Render instance: the service sleeps after
+fifteen minutes of inactivity, so the dictionary was wiped regularly while the
+documents those sessions had indexed stayed behind in Qdrant forever.  Visitors
+silently lost access to their own uploads.  A signed cookie has no such state to
+lose, works across restarts and across multiple workers, and is less code.
+"""
+
+import hmac
+from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-import secrets
+from hashlib import sha256
+from secrets import compare_digest, token_urlsafe
 
-from fastapi import Cookie, HTTPException, Response, status
-
-
-SESSION_COOKIE_NAME = "sourcesync_session"
+COOKIE_NAME = "sourcesync_session"
+SESSION_ID_BYTES = 16
 
 
 @dataclass(frozen=True)
 class Session:
-    session_id: str
+    id: str
     expires_at: datetime
 
+    @property
+    def expires_at_unix(self) -> int:
+        return int(self.expires_at.timestamp())
 
-class SessionStore:
-    def __init__(self, ttl_minutes: int) -> None:
-        self._ttl = timedelta(minutes=ttl_minutes)
-        self._sessions: dict[str, Session] = {}
-
-    def create(self) -> Session:
-        now = datetime.now(UTC)
-        session = Session(
-            session_id=secrets.token_urlsafe(32),
-            expires_at=now + self._ttl,
-        )
-        self._sessions[session.session_id] = session
-        return session
-
-    def get_or_create(self, session_id: str | None) -> Session:
-        self._remove_expired()
-        if session_id and session_id in self._sessions:
-            return self._sessions[session_id]
-        return self.create()
-
-    def require(self, session_id: str | None) -> Session:
-        self._remove_expired()
-        if not session_id or session_id not in self._sessions:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session expired. Start a new session.",
-            )
-        return self._sessions[session_id]
-
-    def _remove_expired(self) -> None:
-        now = datetime.now(UTC)
-        expired_ids = [
-            session_id
-            for session_id, session in self._sessions.items()
-            if session.expires_at <= now
-        ]
-        for session_id in expired_ids:
-            del self._sessions[session_id]
+    @property
+    def max_age_seconds(self) -> int:
+        return max(0, int((self.expires_at - datetime.now(UTC)).total_seconds()))
 
 
-def set_session_cookie(response: Response, session: Session, secure: bool = False) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=session.session_id,
-        max_age=max(0, int((session.expires_at - datetime.now(UTC)).total_seconds())),
-        httponly=True,
-        # Cross-origin frontend/backend requests require None; local HTTP uses Lax.
-        samesite="none" if secure else "lax",
-        secure=secure,
-    )
+def new_session(ttl_minutes: int) -> Session:
+    # Truncated to whole seconds on purpose: the signed token carries a unix
+    # timestamp, so sub-second precision would be lost on the first round trip
+    # and the reported expiry would appear to change between requests.
+    expires_at = (datetime.now(UTC) + timedelta(minutes=ttl_minutes)).replace(microsecond=0)
+    return Session(id=token_urlsafe(SESSION_ID_BYTES), expires_at=expires_at)
 
 
-def session_cookie(
-    sourcesync_session: str | None = Cookie(default=None),
-) -> str | None:
-    return sourcesync_session
+def encode(session: Session, secret: str) -> str:
+    """Serialise a session into ``id.expiry.signature``."""
+    payload = f"{session.id}.{session.expires_at_unix}"
+    return f"{payload}.{_sign(payload, secret)}"
+
+
+def decode(token: str | None, secret: str) -> Session | None:
+    """Return the session a token represents, or ``None`` if it is invalid.
+
+    Invalid covers forged, tampered with, malformed and expired -- the caller
+    treats all of them the same way, by starting a new session.
+    """
+    if not token:
+        return None
+    parts = token.rsplit(".", 2)
+    if len(parts) != 3:
+        return None
+    session_id, expiry, signature = parts
+
+    if not compare_digest(_sign(f"{session_id}.{expiry}", secret), signature):
+        return None
+    try:
+        expires_at = datetime.fromtimestamp(int(expiry), UTC)
+    except (ValueError, OverflowError, OSError):
+        return None
+    if expires_at <= datetime.now(UTC):
+        return None
+    return Session(id=session_id, expires_at=expires_at)
+
+
+def _sign(payload: str, secret: str) -> str:
+    digest = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), sha256).digest()
+    return urlsafe_b64encode(digest).decode("ascii").rstrip("=")

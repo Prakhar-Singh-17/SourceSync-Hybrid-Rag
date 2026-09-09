@@ -1,0 +1,22 @@
+[
+  { "question": "How are term frequencies turned into a sparse vector?", "expected": "app/core/sparse.py" },
+  { "question": "Why is CRC32 used instead of the built-in hash function?", "expected": "app/core/sparse.py" },
+  { "question": "What constant does reciprocal rank fusion use and why?", "expected": "app/core/fusion.py" },
+  { "question": "How does a passage found by both searches end up ranked higher?", "expected": "app/core/fusion.py" },
+  { "question": "How does the chunker avoid splitting a line of source code?", "expected": "app/core/chunking.py" },
+  { "question": "How much do consecutive passages overlap?", "expected": "app/core/chunking.py" },
+  { "question": "How is the session cookie signed and verified?", "expected": "app/sessions.py" },
+  { "question": "What happens when the embedding API returns the wrong number of vectors?", "expected": "app/services/embeddings.py" },
+  { "question": "How is output_dimensionality used to shrink the vectors?", "expected": "app/services/embeddings.py" },
+  { "question": "How is the Qdrant collection created with named dense and sparse vectors?", "expected": "app/services/vectorstore.py" },
+  { "question": "How are passages from expired sessions deleted?", "expected": "app/services/vectorstore.py" },
+  { "question": "Why is a 429 rate limit not retried?", "expected": "app/services/retry.py" },
+  { "question": "How is a GitHub repository archive downloaded without writing to disk?", "expected": "app/services/github.py" },
+  { "question": "Which files are excluded when indexing a repository?", "expected": "app/core/repository.py" },
+  { "question": "How many pages is a PDF allowed to have?", "expected": "app/core/documents.py" },
+  { "question": "What format is the answer model told to produce?", "expected": "app/services/llm.py" },
+  { "question": "How is reranking skipped when it would not help?", "expected": "app/services/llm.py" },
+  { "question": "How are the shared clients built when the app starts?", "expected": "app/main.py" },
+  { "question": "Which settings control how many passages are retrieved?", "expected": "app/config.py" },
+  { "question": "In what order does the pipeline retrieve, rerank and answer?", "expected": "app/services/pipeline.py" }
+]
