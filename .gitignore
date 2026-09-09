@@ -23,3 +23,6 @@ frontend/.env
 .idea/
 Thumbs.db
 .DS_Store
+
+# Local tooling and agent scaffolding (kept on disk, never committed)
+.claude/
