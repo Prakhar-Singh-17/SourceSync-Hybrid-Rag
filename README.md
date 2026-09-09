@@ -82,13 +82,13 @@ file lands in the top 5.
 cd backend && python -m evaluation.evaluate
 ```
 
-20 questions over 86 passages from 26 files:
+20 questions over 96 passages from 27 files:
 
 | Retrieval | Hit@5 | MRR |
 | --- | --- | --- |
-| Semantic (dense) only | 100% | 0.875 |
-| Keyword (BM25) only | 100% | 0.821 |
-| Hybrid with RRF | 100% | 0.950 |
+| Semantic (dense) only | 100% | 0.942 |
+| Keyword (BM25) only | 100% | 0.838 |
+| Hybrid with RRF | 100% | 0.975 |
 | Hybrid with RRF + rerank | 100% | **1.000** |
 
 The ordering is what the design predicts: fusion beats either search alone, and
@@ -238,8 +238,9 @@ app detects this at startup and says so rather than misbehaving quietly.
 
 - Harder evaluation: a larger corpus and questions that do not borrow the
   source's vocabulary, so Hit@k has room to discriminate.
-- Stream the answer token by token; on a free tier the wait is dominated by
-  generation, and streaming hides most of it.
+- Progress while indexing. Answering already streams its stages; ingestion shows
+  an indeterminate bar, and the passage count is known before embedding starts,
+  so it could report real progress the same way.
 - Cache query embeddings, so a repeated question skips a round trip.
 - Multi-turn follow-ups, which need each question rewritten into a standalone
   query before retrieval.
