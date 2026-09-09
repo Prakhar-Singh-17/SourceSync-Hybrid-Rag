@@ -17,12 +17,18 @@ export default function App() {
   const [indexed, setIndexed] = useState({ passageCount: 0, sources: [] });
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
+  // Whether the session has been read at least once. Without this, "no sources
+  // yet" and "we have not asked yet" look identical, and the app renders the
+  // empty state for the second before the first response lands, then jumps to
+  // the workspace. Unknown is its own state, not a zero.
+  const [loaded, setLoaded] = useState(false);
 
   const applySession = useCallback((session) => {
     setIndexed({
       passageCount: session.passage_count ?? 0,
       sources: session.sources ?? [],
     });
+    setLoaded(true);
   }, []);
 
   const connect = useCallback(async () => {
@@ -135,7 +141,9 @@ export default function App() {
       </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-12 sm:py-16">
-        {!hasSources ? (
+        {!loaded ? (
+          <FirstLoad status={status} message={statusMessage} onRetry={connect} />
+        ) : !hasSources ? (
           <>
             <header className="text-center">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -174,6 +182,39 @@ export default function App() {
           </p>
         </footer>
       </div>
+    </div>
+  );
+}
+
+/** Shown until the first session response decides which layout is correct. */
+function FirstLoad({ status, message, onRetry }) {
+  if (status === "error") {
+    return (
+      <div className="py-24 text-center">
+        <p className="text-sm text-slate-500 dark:text-slate-400">{message}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-24" role="status" aria-live="polite">
+      <div className="mx-auto max-w-sm animate-pulse space-y-3">
+        <div className="h-2.5 w-2/3 rounded-full bg-slate-100 dark:bg-slate-900" />
+        <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-900" />
+        <div className="h-2.5 w-1/2 rounded-full bg-slate-100 dark:bg-slate-900" />
+      </div>
+      <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+        {status === "connecting" && message === "Waking the server"
+          ? "Waking the server — this can take up to a minute"
+          : "Loading your session"}
+      </p>
     </div>
   );
 }
