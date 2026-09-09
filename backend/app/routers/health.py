@@ -1,30 +1,35 @@
-from fastapi import APIRouter, HTTPException
-from qdrant_client import AsyncQdrantClient
+"""Liveness and dependency checks."""
 
-from app.state import settings
+from fastapi import APIRouter, Request
 
+from app.config import get_settings
+from app.schemas import HealthResponse
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 
-@router.get("")
-async def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "sourcesync-api"}
+@router.get("", response_model=HealthResponse)
+async def health_check() -> HealthResponse:
+    """Always answers, even when credentials are missing, so a deploy can be probed."""
+    missing = get_settings().missing_credentials
+    return HealthResponse(
+        status="ok" if not missing else "degraded",
+        service="sourcesync-api",
+        detail=None if not missing else f"Missing configuration: {', '.join(missing)}.",
+    )
 
 
-@router.get("/qdrant")
-async def qdrant_health_check() -> dict[str, str]:
-    if not settings.qdrant_url or not settings.qdrant_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Qdrant is not configured. Add QDRANT_URL and QDRANT_API_KEY to .env.",
+@router.get("/qdrant", response_model=HealthResponse)
+async def qdrant_health_check(request: Request) -> HealthResponse:
+    client = getattr(request.app.state, "qdrant", None)
+    if client is None:
+        return HealthResponse(
+            status="unconfigured",
+            service="qdrant",
+            detail="Set QDRANT_URL and QDRANT_API_KEY.",
         )
-
-    client = AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
     try:
         await client.get_collections()
     except Exception as error:
-        raise HTTPException(status_code=503, detail="Unable to connect to Qdrant.") from error
-    finally:
-        await client.close()
-    return {"status": "ok", "service": "qdrant"}
+        return HealthResponse(status="unreachable", service="qdrant", detail=str(error)[:200])
+    return HealthResponse(status="ok", service="qdrant")
