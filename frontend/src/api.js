@@ -25,6 +25,9 @@ async function request(path, options = {}) {
 
 export const startSession = () => request("/api/session", { method: "POST" });
 
+/** What this session has indexed. Read from the server so it survives a reload. */
+export const getSession = () => request("/api/session");
+
 export const clearSession = () => request("/api/session", { method: "DELETE" });
 
 export const getApiHealth = () => request("/api/health");

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { askQuestion, startSession } from "./api.js";
+import { askQuestion, getSession, startSession } from "./api.js";
 import AskPanel from "./components/AskPanel.jsx";
-import SourcesPanel from "./components/SourcesPanel.jsx";
+import EmptyState from "./components/EmptyState.jsx";
+import Sidebar from "./components/Sidebar.jsx";
 
 // A free Render service sleeps after inactivity and takes the better part of a
 // minute to wake. Retrying quietly turns "failed to fetch" on a cold start into
@@ -13,17 +14,22 @@ const RETRY_DELAY_MS = 4000;
 export default function App() {
   const [status, setStatus] = useState("connecting");
   const [statusMessage, setStatusMessage] = useState("Connecting");
-  const [passageCount, setPassageCount] = useState(0);
-  const [sources, setSources] = useState([]);
+  const [indexed, setIndexed] = useState({ passageCount: 0, sources: [] });
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
+
+  const applySession = useCallback((session) => {
+    setIndexed({
+      passageCount: session.passage_count ?? 0,
+      sources: session.sources ?? [],
+    });
+  }, []);
 
   const connect = useCallback(async () => {
     setStatus("connecting");
     for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt += 1) {
       try {
-        const session = await startSession();
-        setPassageCount(session.passage_count ?? 0);
+        applySession(await startSession());
         setStatus("ready");
         setStatusMessage("Connected");
         return;
@@ -37,22 +43,23 @@ export default function App() {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       }
     }
-  }, []);
+  }, [applySession]);
 
   useEffect(() => {
     void connect();
   }, [connect]);
 
-  function handleIndexed(result) {
-    setSources((current) => [...current, { ...result, key: `${result.source_name}-${Date.now()}` }]);
-    setPassageCount(result.total_passages ?? 0);
-  }
+  // The server is the single source of truth for what is indexed, so every
+  // change re-reads it rather than patching a local copy. That is what makes
+  // the list correct after a page reload.
+  const refresh = useCallback(async () => {
+    applySession(await getSession());
+  }, [applySession]);
 
-  function handleCleared() {
-    setSources([]);
-    setPassageCount(0);
+  const handleCleared = useCallback(async () => {
+    await refresh();
     setHistory([]);
-  }
+  }, [refresh]);
 
   async function handleAsk(question) {
     const id = Date.now();
@@ -74,17 +81,15 @@ export default function App() {
     }
   }
 
+  const hasSources = indexed.passageCount > 0;
+
   return (
     <div className="min-h-screen bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
       {/* Sticky so the connection state stays visible while reading long answers.
           The translucent background plus blur keeps content legible underneath. */}
       <nav className="sticky top-0 z-10 border-b border-zinc-200 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3.5">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2.5">
-            {/* Swap in your own logo: replace public/logo.svg, or point src at a
-                new file. alt stays empty on purpose -- the wordmark beside it
-                already names the site, so a screen reader would otherwise
-                announce it twice. */}
             <img src="/logo.png" alt="" className="h-7 w-7 rounded-md" />
             <span className="text-base font-semibold tracking-tight">SourceSync</span>
           </div>
@@ -92,25 +97,32 @@ export default function App() {
         </div>
       </nav>
 
-      <div className="mx-auto max-w-3xl px-6 py-14 sm:py-20">
-        <header>
-          <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">Ask your sources.</h1>
-          <p className="mt-5 max-w-lg text-[15px] leading-7 text-zinc-500 dark:text-zinc-400">
-            Index your own documents or any public GitHub repository, then ask questions about
-            them. Every answer is built only from what you indexed, and each claim cites the
-            passage it came from.
-          </p>
-        </header>
-
-        <main className="mt-16 space-y-16">
-          <SourcesPanel
-            sources={sources}
-            passageCount={passageCount}
-            onIndexed={handleIndexed}
-            onCleared={handleCleared}
-          />
-          <AskPanel history={history} busy={busy} hasSources={passageCount > 0} onAsk={handleAsk} />
-        </main>
+      <div className="mx-auto max-w-5xl px-6 py-12 sm:py-16">
+        {!hasSources ? (
+          <>
+            <header className="text-center">
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                Ask your sources.
+              </h1>
+              <p className="mx-auto mt-4 max-w-lg text-[15px] leading-7 text-zinc-500 dark:text-zinc-400">
+                Answers are built only from what you index, and every claim cites the passage it
+                came from.
+              </p>
+            </header>
+            <main className="mt-12">
+              <EmptyState onIndexed={refresh} />
+            </main>
+          </>
+        ) : (
+          <main className="grid gap-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-14">
+            <Sidebar
+              sources={indexed.sources}
+              passageCount={indexed.passageCount}
+              onChanged={handleCleared}
+            />
+            <AskPanel history={history} busy={busy} onAsk={handleAsk} />
+          </main>
+        )}
 
         <footer className="mt-24 border-t border-zinc-200 pt-8 text-[13px] leading-6 text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
           <p className="max-w-xl">
@@ -118,7 +130,6 @@ export default function App() {
             rankings with reciprocal rank fusion, reranks what survives, and answers only from
             those passages.
           </p>
-          <p className="mt-2">Sessions are anonymous and expire after 60 minutes.</p>
         </footer>
       </div>
     </div>
