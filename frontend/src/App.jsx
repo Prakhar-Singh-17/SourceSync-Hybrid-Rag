@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getSession, startSession, streamQuestion } from "./api.js";
 import AskPanel from "./components/AskPanel.jsx";
+import ConnectionBanner from "./components/ConnectionBanner.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -11,23 +12,51 @@ import Sidebar from "./components/Sidebar.jsx";
 const CONNECT_ATTEMPTS = 4;
 const RETRY_DELAY_MS = 4000;
 
+// Which layout was correct last time. The two layouts are mutually exclusive
+// and the server decides between them, so without a hint the page either waits
+// for the answer or guesses and visibly corrects itself. Remembering the last
+// answer -- with the session expiry, so a stale hint is never trusted -- means
+// returning visitors land on the right one immediately.
+const LAYOUT_HINT = "sourcesync:last-session";
+
+function expectsWorkspace() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LAYOUT_HINT) ?? "null");
+    return Boolean(stored?.hasSources) && Date.now() < stored.expiresAt;
+  } catch {
+    return false;
+  }
+}
+
+function rememberLayout(session) {
+  try {
+    localStorage.setItem(
+      LAYOUT_HINT,
+      JSON.stringify({
+        hasSources: (session.passage_count ?? 0) > 0,
+        expiresAt: Date.parse(session.expires_at),
+      }),
+    );
+  } catch {
+    // Private browsing, or storage disabled. The hint is an optimisation.
+  }
+}
+
 export default function App() {
   const [status, setStatus] = useState("connecting");
   const [statusMessage, setStatusMessage] = useState("Connecting");
   const [indexed, setIndexed] = useState({ passageCount: 0, sources: [] });
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
-  // Whether the session has been read at least once. Without this, "no sources
-  // yet" and "we have not asked yet" look identical, and the app renders the
-  // empty state for the second before the first response lands, then jumps to
-  // the workspace. Unknown is its own state, not a zero.
   const [loaded, setLoaded] = useState(false);
+  const [guessedWorkspace] = useState(expectsWorkspace);
 
   const applySession = useCallback((session) => {
     setIndexed({
       passageCount: session.passage_count ?? 0,
       sources: session.sources ?? [],
     });
+    rememberLayout(session);
     setLoaded(true);
   }, []);
 
@@ -60,6 +89,8 @@ export default function App() {
   // the list correct after a page reload.
   const refresh = useCallback(async () => {
     applySession(await getSession());
+    setStatus("ready");
+    setStatusMessage("Connected");
   }, [applySession]);
 
   const handleCleared = useCallback(async () => {
@@ -124,7 +155,9 @@ export default function App() {
     }
   }
 
-  const hasSources = indexed.passageCount > 0;
+  const connecting = status === "connecting";
+  // Before the session lands, fall back to what was true last time.
+  const showWorkspace = loaded ? indexed.passageCount > 0 : guessedWorkspace;
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
@@ -140,10 +173,12 @@ export default function App() {
         </div>
       </nav>
 
+      {!loaded && (
+        <ConnectionBanner status={status} message={statusMessage} onRetry={connect} />
+      )}
+
       <div className="mx-auto max-w-5xl px-6 py-12 sm:py-16">
-        {!loaded ? (
-          <FirstLoad status={status} message={statusMessage} onRetry={connect} />
-        ) : !hasSources ? (
+        {!showWorkspace ? (
           <>
             <header className="text-center">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -155,7 +190,7 @@ export default function App() {
               </p>
             </header>
             <main className="mt-12">
-              <EmptyState onIndexed={refresh} />
+              <EmptyState onIndexed={refresh} connecting={connecting} />
             </main>
           </>
         ) : (
@@ -164,6 +199,8 @@ export default function App() {
               sources={indexed.sources}
               passageCount={indexed.passageCount}
               onChanged={handleCleared}
+              loading={!loaded}
+              connecting={connecting}
             />
             <AskPanel
               history={history}
@@ -182,39 +219,6 @@ export default function App() {
           </p>
         </footer>
       </div>
-    </div>
-  );
-}
-
-/** Shown until the first session response decides which layout is correct. */
-function FirstLoad({ status, message, onRetry }) {
-  if (status === "error") {
-    return (
-      <div className="py-24 text-center">
-        <p className="text-sm text-slate-500 dark:text-slate-400">{message}</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-        >
-          Try again
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="py-24" role="status" aria-live="polite">
-      <div className="mx-auto max-w-sm animate-pulse space-y-3">
-        <div className="h-2.5 w-2/3 rounded-full bg-slate-100 dark:bg-slate-900" />
-        <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-900" />
-        <div className="h-2.5 w-1/2 rounded-full bg-slate-100 dark:bg-slate-900" />
-      </div>
-      <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-        {status === "connecting" && message === "Waking the server"
-          ? "Waking the server — this can take up to a minute"
-          : "Loading your session"}
-      </p>
     </div>
   );
 }

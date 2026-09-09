@@ -8,7 +8,7 @@ import SourceForm from "./SourceForm.jsx";
  * from the start, which invited people to type into a control that could not
  * respond.
  */
-export default function EmptyState({ onIndexed }) {
+export default function EmptyState({ onIndexed, connecting = false }) {
   return (
     <div className="mx-auto max-w-md py-6 text-center">
       <h2 className="text-xl font-medium tracking-tight">Add your first source</h2>
@@ -18,7 +18,7 @@ export default function EmptyState({ onIndexed }) {
       </p>
 
       <div className="mt-8 text-left">
-        <SourceForm variant="hero" onIndexed={onIndexed} />
+        <SourceForm variant="hero" onIndexed={onIndexed} connecting={connecting} />
       </div>
 
       <p className="mt-8 text-xs leading-5 text-slate-400 dark:text-slate-500">

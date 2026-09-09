@@ -11,7 +11,7 @@ import ProgressBar from "./ProgressBar.jsx";
  * `variant="hero"` is the roomy first-run version; `"panel"` is the compact
  * one that sits in the rail afterwards.
  */
-export default function SourceForm({ variant = "panel", onIndexed }) {
+export default function SourceForm({ variant = "panel", onIndexed, connecting = false }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
@@ -57,7 +57,7 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
         }`}
       >
         <span className={hero ? "text-sm font-medium" : "text-[13px] font-medium"}>
-          {busy === "document" ? "Indexing…" : "Upload a document"}
+          {busy === "document" ? (connecting ? "Waking the server…" : "Indexing…") : "Upload a document"}
         </span>
         <span className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {hero ? "PDF, TXT or Markdown · up to 15 MB" : "PDF, TXT or MD"}
@@ -100,7 +100,7 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
             hero ? "py-2.5 text-sm" : "py-2 text-[13px]"
           }`}
         >
-          {busy === "repository" ? "Indexing…" : "Index repository"}
+          {busy === "repository" ? (connecting ? "Waking the server…" : "Indexing…") : "Index repository"}
         </button>
       </form>
 
@@ -113,11 +113,19 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
       {busy && (
         <ProgressBar
           label={
-            busy === "document"
-              ? "Extracting text and embedding passages"
-              : "Downloading, filtering and embedding files"
+            connecting
+              ? "Waiting for the server to wake up"
+              : busy === "document"
+                ? "Extracting text and embedding passages"
+                : "Downloading, filtering and embedding files"
           }
-          hint={busy === "repository" ? "Large repositories can take a minute." : null}
+          hint={
+            connecting
+              ? "Your source will be indexed as soon as it responds."
+              : busy === "repository"
+                ? "Large repositories can take a minute."
+                : null
+          }
         />
       )}
     </div>

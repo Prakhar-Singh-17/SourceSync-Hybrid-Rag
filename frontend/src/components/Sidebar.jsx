@@ -11,7 +11,7 @@ import SourceForm from "./SourceForm.jsx";
  * collapses to a summary line, since a sidebar that eats half a phone screen
  * is worse than no sidebar.
  */
-export default function Sidebar({ sources, passageCount, onChanged }) {
+export default function Sidebar({ sources, passageCount, onChanged, loading = false, connecting = false }) {
   const [open, setOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
 
@@ -31,10 +31,19 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
         <h2 className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
           Sources
         </h2>
-        <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
-          {passageCount} passages
-        </span>
+        {!loading && (
+          <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
+            {passageCount} passages
+          </span>
+        )}
       </div>
+
+      {loading && (
+        <ul className="mt-4 space-y-2.5" aria-hidden="true">
+          <li className="h-3 w-3/4 animate-pulse rounded-full bg-slate-100 dark:bg-slate-900" />
+          <li className="h-3 w-1/2 animate-pulse rounded-full bg-slate-100 dark:bg-slate-900" />
+        </ul>
+      )}
 
       <ul className="mt-4 space-y-px">
         {sources.map((source) => (
@@ -63,7 +72,7 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
           {open ? "Done" : "Add another source"}
         </button>
         <div className={`${open ? "mt-3 block" : "hidden"} lg:mt-0 lg:block`}>
-          <SourceForm variant="panel" onIndexed={onChanged} />
+          <SourceForm variant="panel" onIndexed={onChanged} connecting={connecting} />
         </div>
       </div>
 
