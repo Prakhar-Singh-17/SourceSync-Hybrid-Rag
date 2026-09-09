@@ -80,7 +80,14 @@ export default function App() {
           The translucent background plus blur keeps content legible underneath. */}
       <nav className="sticky top-0 z-10 border-b border-zinc-200 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3.5">
-          <span className="text-base font-semibold tracking-tight">SourceSync</span>
+          <div className="flex items-center gap-2.5">
+            {/* Swap in your own logo: replace public/logo.svg, or point src at a
+                new file. alt stays empty on purpose -- the wordmark beside it
+                already names the site, so a screen reader would otherwise
+                announce it twice. */}
+            <img src="/logo.svg" alt="" className="h-7 w-7 rounded-md" />
+            <span className="text-base font-semibold tracking-tight">SourceSync</span>
+          </div>
           <StatusDot status={status} message={statusMessage} onRetry={connect} />
         </div>
       </nav>
@@ -93,14 +100,6 @@ export default function App() {
             them. Every answer is built only from what you indexed, and each claim cites the
             passage it came from.
           </p>
-
-          {/* Swap in your own image: replace public/hero.svg, or point src at a
-              new file and give alt a real description if it conveys meaning. */}
-          <img
-            src="/hero.svg"
-            alt=""
-            className="mt-10 aspect-video w-full rounded-xl border border-zinc-200 bg-zinc-50 object-cover dark:border-zinc-800 dark:bg-zinc-900"
-          />
         </header>
 
         <main className="mt-16 space-y-16">
