@@ -225,10 +225,6 @@ class Pipeline:
         await self._store.ensure_ready()
         await self._store.delete_session(session_id)
 
-    async def passage_count(self, session_id: str) -> int:
-        await self._store.ensure_ready()
-        return await self._store.count_for_session(session_id)
-
     async def sources(self, session_id: str) -> list[SourceSummary]:
         """Everything indexed in this session, newest ordering not guaranteed."""
         await self._store.ensure_ready()

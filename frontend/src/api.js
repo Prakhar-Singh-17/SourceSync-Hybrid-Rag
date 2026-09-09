@@ -30,10 +30,6 @@ export const getSession = () => request("/api/session");
 
 export const clearSession = () => request("/api/session", { method: "DELETE" });
 
-export const getApiHealth = () => request("/api/health");
-
-export const getQdrantHealth = () => request("/api/health/qdrant");
-
 export function ingestDocument(file) {
   const body = new FormData();
   body.append("upload", file);
