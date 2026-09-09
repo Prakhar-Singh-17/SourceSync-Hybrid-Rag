@@ -14,6 +14,7 @@ tuning constants, which made the actual retrieval strategy hard to find.
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
@@ -112,23 +113,38 @@ class Pipeline:
 
     # --------------------------------------------------------------------- ask
 
-    async def ask(self, session_id: str, question: str) -> AnswerResponse:
+    async def ask_stream(self, session_id: str, question: str) -> AsyncIterator[dict[str, object]]:
+        """Run the pipeline, emitting an event as each stage completes.
+
+        Event types:
+
+        ``stage``    a named stage has begun: embedding, searching, reranking, writing
+        ``context``  retrieval finished; carries the citations and retrieval counts
+        ``token``    a fragment of the answer, as the model writes it
+        ``done``     carries the per-stage timings
+        ``error``    something failed, with a message
+
+        Emitting ``context`` before the first token is the point of streaming
+        here: the reader sees which passages the answer will be built from while
+        it is still being written, rather than waiting for the whole thing.
+        """
         started = time.perf_counter()
 
         if await self._store.count_for_session(session_id) == 0:
-            return AnswerResponse(
-                answer="No sources have been indexed yet. Add a document or a repository first.",
-                timings=Timings(total_ms=_elapsed_ms(started)),
-            )
+            yield _token("No sources have been indexed yet. Add a document or a repository first.")
+            yield _done(Timings(total_ms=_elapsed_ms(started)))
+            return
 
         # Both representations of the question. The dense one costs an API call;
         # the sparse one is pure local computation, which is why the keyword half
         # of hybrid search is effectively free.
+        yield _stage("embedding")
         embed_started = time.perf_counter()
         query_vector = await self._embedder.embed_query(question)
         indices, values = sparse_vector(question)
         embed_ms = _elapsed_ms(embed_started)
 
+        yield _stage("searching")
         search_started = time.perf_counter()
         dense, sparse = await asyncio.gather(
             self._store.search_dense(session_id, query_vector, self._retrieval_candidates),
@@ -138,34 +154,72 @@ class Pipeline:
 
         candidates = reciprocal_rank_fusion(dense, sparse, limit=self._retrieval_candidates)
         if not candidates:
-            return AnswerResponse(
-                answer="Nothing in the indexed sources matched that question.",
-                timings=Timings(embed_ms=embed_ms, search_ms=search_ms, total_ms=_elapsed_ms(started)),
-            )
+            yield _token("Nothing in the indexed sources matched that question.")
+            yield _done(Timings(embed_ms=embed_ms, search_ms=search_ms, total_ms=_elapsed_ms(started)))
+            return
 
+        yield _stage("reranking")
         rerank_started = time.perf_counter()
         context, reranked = await self._llm.rerank(question, candidates, self._context_passages)
         rerank_ms = _elapsed_ms(rerank_started)
 
+        yield {
+            "type": "context",
+            "citations": [
+                _to_citation(number, item).model_dump()
+                for number, item in enumerate(context, start=1)
+            ],
+            "reranked": reranked,
+            "candidates_considered": len(candidates),
+            "dense_hits": len(dense),
+            "sparse_hits": len(sparse),
+        }
+
+        yield _stage("writing")
         generate_started = time.perf_counter()
-        answer = await self._llm.answer(question, context)
+        produced = False
+        async for piece in self._llm.answer_stream(question, context):
+            produced = True
+            yield _token(piece)
+        if not produced:
+            logger.warning("Gemini produced no answer text; the token budget may have been hit.")
+            yield _token(
+                "No answer could be generated from the retrieved sources. Try rephrasing the question."
+            )
         generate_ms = _elapsed_ms(generate_started)
 
-        return AnswerResponse(
-            answer=answer,
-            citations=[_to_citation(number, item) for number, item in enumerate(context, start=1)],
-            reranked=reranked,
-            candidates_considered=len(candidates),
-            dense_hits=len(dense),
-            sparse_hits=len(sparse),
-            timings=Timings(
+        yield _done(
+            Timings(
                 embed_ms=embed_ms,
                 search_ms=search_ms,
                 rerank_ms=rerank_ms,
                 generate_ms=generate_ms,
                 total_ms=_elapsed_ms(started),
-            ),
+            )
         )
+
+    async def ask(self, session_id: str, question: str) -> AnswerResponse:
+        """The whole answer at once, assembled from the same generator.
+
+        Kept so the JSON endpoint and the streaming endpoint cannot drift: there
+        is one implementation of the pipeline, and this drains it.
+        """
+        response = AnswerResponse(answer="")
+        parts: list[str] = []
+        async for event in self.ask_stream(session_id, question):
+            kind = event.get("type")
+            if kind == "token":
+                parts.append(str(event["text"]))
+            elif kind == "context":
+                response.citations = [Citation(**item) for item in event["citations"]]  # type: ignore[union-attr]
+                response.reranked = bool(event["reranked"])
+                response.candidates_considered = int(event["candidates_considered"])  # type: ignore[arg-type]
+                response.dense_hits = int(event["dense_hits"])  # type: ignore[arg-type]
+                response.sparse_hits = int(event["sparse_hits"])  # type: ignore[arg-type]
+            elif kind == "done":
+                response.timings = Timings(**event["timings"])  # type: ignore[arg-type]
+        response.answer = "".join(parts).strip()
+        return response
 
     async def clear(self, session_id: str) -> None:
         await self._store.ensure_ready()
@@ -203,3 +257,15 @@ def _to_citation(number: int, item: Retrieved) -> Citation:
 
 def _elapsed_ms(started: float) -> int:
     return int((time.perf_counter() - started) * 1000)
+
+
+def _stage(name: str) -> dict[str, object]:
+    return {"type": "stage", "stage": name}
+
+
+def _token(text: str) -> dict[str, object]:
+    return {"type": "token", "text": text}
+
+
+def _done(timings: Timings) -> dict[str, object]:
+    return {"type": "done", "timings": timings.model_dump()}

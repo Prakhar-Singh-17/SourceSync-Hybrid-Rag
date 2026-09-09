@@ -9,6 +9,7 @@ API.
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
 
 from google import genai
 from google.genai import types
@@ -121,37 +122,40 @@ class LanguageModel:
         ranked.extend(candidate for index, candidate in enumerate(candidates) if index not in seen)
         return ranked[:top_k], True
 
-    async def answer(self, question: str, sources: list[Retrieved]) -> str:
-        """Generate a grounded, cited answer from the given sources."""
+    async def answer_stream(self, question: str, sources: list[Retrieved]) -> AsyncIterator[str]:
+        """Generate a grounded, cited answer, yielding text as the model writes it.
+
+        Streaming is not wrapped in the retry policy: once the first chunk has
+        been handed to the caller it has already reached the browser, so a retry
+        would restart an answer the reader is part-way through. A failure before
+        any output still propagates and is reported as an error event.
+        """
+        stream = await self._client.aio.models.generate_content_stream(
+            model=self._model,
+            contents=self._answer_prompt(question, sources),
+            config=self._answer_config(),
+        )
+        async for chunk in stream:
+            if chunk.text:
+                yield chunk.text
+
+    def _answer_prompt(self, question: str, sources: list[Retrieved]) -> str:
         listing = "\n\n".join(
             f"[{number}] {source.location}\n{source.text}"
             for number, source in enumerate(sources, start=1)
         )
-        prompt = f"Question:\n{question}\n\nSources:\n{listing}\n\n{ANSWER_FORMAT}"
+        return f"Question:\n{question}\n\nSources:\n{listing}\n\n{ANSWER_FORMAT}"
 
-        response = await with_retry(
-            lambda: asyncio.to_thread(
-                self._client.models.generate_content,
-                model=self._model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=ANSWER_SYSTEM_INSTRUCTION,
-                    temperature=0.3,
-                    # Generous on purpose. The previous limit of 240 tokens was
-                    # below what the requested format needs, so answers were
-                    # being cut off mid-sentence by the token budget rather than
-                    # finishing naturally.
-                    max_output_tokens=self._answer_max_tokens,
-                    thinking_config=thinking_config(self._thinking_budget),
-                ),
-            ),
-            description="Answer generation",
+    def _answer_config(self) -> types.GenerateContentConfig:
+        return types.GenerateContentConfig(
+            system_instruction=ANSWER_SYSTEM_INSTRUCTION,
+            temperature=0.3,
+            # Generous on purpose. The previous limit of 240 tokens was below
+            # what the requested format needs, so answers were being cut off
+            # mid-sentence by the token budget rather than finishing naturally.
+            max_output_tokens=self._answer_max_tokens,
+            thinking_config=thinking_config(self._thinking_budget),
         )
-        text = (response.text or "").strip()
-        if not text:
-            logger.warning("Gemini returned an empty answer (finish reason may be a token limit).")
-            return "No answer could be generated from the retrieved sources. Try rephrasing the question."
-        return text
 
     async def _request_order(self, question: str, candidates: list[Retrieved]) -> list[int]:
         listing = "\n\n".join(

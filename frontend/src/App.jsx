@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { askQuestion, getSession, startSession } from "./api.js";
+import { getSession, startSession, streamQuestion } from "./api.js";
 import AskPanel from "./components/AskPanel.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -63,21 +63,48 @@ export default function App() {
 
   async function handleAsk(question) {
     const id = Date.now();
+    const patch = (changes) =>
+      setHistory((current) =>
+        current.map((entry) => (entry.id === id ? { ...entry, ...changes } : entry)),
+      );
+
     setBusy(true);
-    setHistory((current) => [{ id, question, pending: true, citations: [] }, ...current]);
+    setHistory((current) => [
+      { id, question, streaming: true, stage: "embedding", answer: "", citations: [] },
+      ...current,
+    ]);
+
     try {
-      const result = await askQuestion(question);
-      setHistory((current) =>
-        current.map((entry) => (entry.id === id ? { id, question, ...result } : entry)),
-      );
+      await streamQuestion(question, (event) => {
+        if (event.type === "stage") {
+          patch({ stage: event.stage });
+        } else if (event.type === "context") {
+          patch({
+            citations: event.citations,
+            reranked: event.reranked,
+            candidates_considered: event.candidates_considered,
+            dense_hits: event.dense_hits,
+            sparse_hits: event.sparse_hits,
+          });
+        } else if (event.type === "token") {
+          // Appended through the updater so concurrent tokens cannot read a
+          // stale answer and drop text.
+          setHistory((current) =>
+            current.map((entry) =>
+              entry.id === id ? { ...entry, answer: entry.answer + event.text } : entry,
+            ),
+          );
+        } else if (event.type === "done") {
+          patch({ timings: event.timings, streaming: false });
+        } else if (event.type === "error") {
+          patch({ error: event.detail, streaming: false });
+        }
+      });
     } catch (error) {
-      setHistory((current) =>
-        current.map((entry) =>
-          entry.id === id ? { id, question, error: error.message, citations: [] } : entry,
-        ),
-      );
+      patch({ error: error.message });
     } finally {
       setBusy(false);
+      patch({ streaming: false });
     }
   }
 

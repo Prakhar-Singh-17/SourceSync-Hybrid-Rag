@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import StageIndicator from "./StageIndicator.jsx";
+
 /**
  * One answer, its citations, and how retrieval produced them.
  *
@@ -11,26 +13,35 @@ import { useState } from "react";
 export default function AnswerCard({ entry }) {
   const [activeCitation, setActiveCitation] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const { question, answer, citations = [], timings, error } = entry;
+  const { question, answer = "", citations = [], timings, error, streaming, stage } = entry;
 
   return (
     <article className="border-t border-zinc-100 pt-8 dark:border-zinc-800/70">
       <h3 className="text-[15px] font-medium leading-6">{question}</h3>
 
-      {entry.pending ? (
-        <p className="mt-5 flex items-center gap-2.5 text-sm text-zinc-400 dark:text-zinc-500">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-400 dark:bg-zinc-500" />
-          Searching, reranking and drafting
-        </p>
-      ) : error ? (
+      {error ? (
         <p className="mt-5 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </p>
       ) : (
         <>
-          <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
-            <CitedText text={answer} citations={citations} onHover={setActiveCitation} />
-          </p>
+          {streaming && (
+            <div className="mt-4">
+              <StageIndicator stage={stage} />
+            </div>
+          )}
+
+          {answer && (
+            <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
+              <CitedText text={answer} citations={citations} onHover={setActiveCitation} />
+              {streaming && (
+                <span
+                  aria-hidden="true"
+                  className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-pulse bg-blue-500 dark:bg-blue-400"
+                />
+              )}
+            </p>
+          )}
 
           {citations.length > 0 && (
             <ol className="mt-8 space-y-px">
