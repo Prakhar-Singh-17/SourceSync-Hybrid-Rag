@@ -76,21 +76,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+      {/* Sticky so the connection state stays visible while reading long answers.
+          The translucent background plus blur keeps content legible underneath. */}
+      <nav className="sticky top-0 z-10 border-b border-zinc-200 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3.5">
+          <span className="text-base font-semibold tracking-tight">SourceSync</span>
+          <StatusDot status={status} message={statusMessage} onRetry={connect} />
+        </div>
+      </nav>
+
       <div className="mx-auto max-w-3xl px-6 py-14 sm:py-20">
         <header>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold tracking-tight">SourceSync</span>
-            <StatusDot status={status} message={statusMessage} onRetry={connect} />
-          </div>
-
-          <h1 className="mt-14 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Ask your sources.
-          </h1>
-          <p className="mt-4 max-w-lg text-[15px] leading-7 text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">Ask your sources.</h1>
+          <p className="mt-5 max-w-lg text-[15px] leading-7 text-zinc-500 dark:text-zinc-400">
             Index your own documents or any public GitHub repository, then ask questions about
             them. Every answer is built only from what you indexed, and each claim cites the
             passage it came from.
           </p>
+
+          {/* Swap in your own image: replace public/hero.svg, or point src at a
+              new file and give alt a real description if it conveys meaning. */}
+          <img
+            src="/hero.svg"
+            alt=""
+            className="mt-10 aspect-video w-full rounded-xl border border-zinc-200 bg-zinc-50 object-cover dark:border-zinc-800 dark:bg-zinc-900"
+          />
         </header>
 
         <main className="mt-16 space-y-16">
