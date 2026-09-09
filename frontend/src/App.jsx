@@ -85,7 +85,7 @@ export default function App() {
                 new file. alt stays empty on purpose -- the wordmark beside it
                 already names the site, so a screen reader would otherwise
                 announce it twice. */}
-            <img src="/logo.svg" alt="" className="h-7 w-7 rounded-md" />
+            <img src="/logo.png" alt="" className="h-7 w-7 rounded-md" />
             <span className="text-base font-semibold tracking-tight">SourceSync</span>
           </div>
           <StatusDot status={status} message={statusMessage} onRetry={connect} />
