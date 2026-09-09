@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from app.config import Settings
 from app.deps import current_session, get_pipeline, settings_dependency
-from app.schemas import SessionResponse
+from app.schemas import SessionResponse, SourceSummary
 from app.sessions import COOKIE_NAME, Session, decode, encode, new_session
 from app.services.pipeline import Pipeline
 
@@ -22,9 +22,11 @@ async def start_session(
         settings.session_ttl_minutes
     )
     _set_cookie(response, session, settings)
+    passage_count, sources = await _indexed(request, session)
     return SessionResponse(
         expires_at=session.expires_at.isoformat(),
-        passage_count=await _count(request, session),
+        passage_count=passage_count,
+        sources=sources,
     )
 
 
@@ -33,9 +35,11 @@ async def read_session(
     request: Request,
     session: Session = Depends(current_session),
 ) -> SessionResponse:
+    passage_count, sources = await _indexed(request, session)
     return SessionResponse(
         expires_at=session.expires_at.isoformat(),
-        passage_count=await _count(request, session),
+        passage_count=passage_count,
+        sources=sources,
     )
 
 
@@ -63,12 +67,18 @@ def _set_cookie(response: Response, session: Session, settings: Settings) -> Non
     )
 
 
-async def _count(request: Request, session: Session) -> int:
-    """Best-effort passage count; a session is still usable if Qdrant is down."""
+async def _indexed(request: Request, session: Session) -> tuple[int, list[SourceSummary]]:
+    """What this session has indexed, as ``(passage count, sources)``.
+
+    Best effort: a session is still usable for reporting its expiry even when
+    Qdrant is unreachable. Every passage carries exactly one source name, so
+    the totals add up to the passage count and no separate count call is needed.
+    """
     pipeline: Pipeline | None = getattr(request.app.state, "pipeline", None)
     if pipeline is None:
-        return 0
+        return 0, []
     try:
-        return await pipeline.passage_count(session.id)
+        sources = await pipeline.sources(session.id)
     except Exception:
-        return 0
+        return 0, []
+    return sum(source.passage_count for source in sources), sources

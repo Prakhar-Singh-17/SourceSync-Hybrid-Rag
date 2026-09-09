@@ -23,7 +23,7 @@ from app.core.errors import SourceError, SourceTooLarge
 from app.core.fusion import reciprocal_rank_fusion
 from app.core.models import Passage, Retrieved
 from app.core.sparse import sparse_vector
-from app.schemas import AnswerResponse, Citation, IngestResponse, Timings
+from app.schemas import AnswerResponse, Citation, IngestResponse, SourceSummary, Timings
 from app.services.embeddings import Embedder
 from app.services.github import download_archive
 from app.services.llm import LanguageModel
@@ -174,6 +174,14 @@ class Pipeline:
     async def passage_count(self, session_id: str) -> int:
         await self._store.ensure_ready()
         return await self._store.count_for_session(session_id)
+
+    async def sources(self, session_id: str) -> list[SourceSummary]:
+        """Everything indexed in this session, newest ordering not guaranteed."""
+        await self._store.ensure_ready()
+        return [
+            SourceSummary(name=name, passage_count=count)
+            for name, count in await self._store.list_sources(session_id)
+        ]
 
 
 def _to_citation(number: int, item: Retrieved) -> Citation:

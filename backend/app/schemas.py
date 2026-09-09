@@ -65,10 +65,20 @@ class IngestResponse(BaseModel):
     total_passages: int
 
 
+class SourceSummary(BaseModel):
+    """One indexed source and how many passages it contributed."""
+
+    name: str
+    passage_count: int
+
+
 class SessionResponse(BaseModel):
     status: str = "ok"
     expires_at: str
     passage_count: int = 0
+    # Read back from the store rather than tracked in the browser, so the list
+    # survives a page reload.
+    sources: list[SourceSummary] = []
 
 
 class HealthResponse(BaseModel):

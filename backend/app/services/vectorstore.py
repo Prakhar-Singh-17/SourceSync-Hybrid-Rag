@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 DENSE_VECTOR = "dense"
 SPARSE_VECTOR = "sparse"
 
+# A session that has indexed more distinct sources than this is not a case worth
+# rendering a list for; the count still reflects everything.
+MAX_SOURCES_LISTED = 100
+
 
 class VectorStore:
     def __init__(self, client: AsyncQdrantClient, collection: str, dimensions: int) -> None:
@@ -47,7 +51,36 @@ class VectorStore:
             await self._create_collection()
         else:
             await self._verify_collection()
+        await self._ensure_indexes()
         self._ready = True
+
+    async def _ensure_indexes(self) -> None:
+        """Declare the payload indexes. Safe to repeat; runs once per process.
+
+        ``session_id`` is marked as a tenant field, which tells Qdrant to keep
+        each session contiguous on disk so the mandatory filter on every search
+        stays cheap instead of scanning. ``source_name`` is indexed so the list
+        of a session's sources can be read with a faceted count rather than by
+        paging through every stored passage.
+        """
+        await self._client.create_payload_index(
+            collection_name=self._collection,
+            field_name="session_id",
+            field_schema=models.KeywordIndexParams(
+                type=models.KeywordIndexType.KEYWORD,
+                is_tenant=True,
+            ),
+        )
+        await self._client.create_payload_index(
+            collection_name=self._collection,
+            field_name="source_name",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
+        await self._client.create_payload_index(
+            collection_name=self._collection,
+            field_name="expires_at",
+            field_schema=models.PayloadSchemaType.INTEGER,
+        )
 
     async def _create_collection(self) -> None:
         logger.info("Creating Qdrant collection %s", self._collection)
@@ -69,19 +102,6 @@ class VectorStore:
             # filtering, only returned with hits. Keeping it on disk rather than
             # in RAM is what makes this fit a free 1 GB cluster.
             on_disk_payload=True,
-        )
-        await self._client.create_payload_index(
-            collection_name=self._collection,
-            field_name="session_id",
-            field_schema=models.KeywordIndexParams(
-                type=models.KeywordIndexType.KEYWORD,
-                is_tenant=True,
-            ),
-        )
-        await self._client.create_payload_index(
-            collection_name=self._collection,
-            field_name="expires_at",
-            field_schema=models.PayloadSchemaType.INTEGER,
         )
 
     async def _verify_collection(self) -> None:
@@ -155,6 +175,24 @@ class VectorStore:
             with_payload=True,
         )
         return [_to_retrieved(point) for point in response.points if point.payload]
+
+    async def list_sources(self, session_id: str) -> list[tuple[str, int]]:
+        """Return ``(source name, passage count)`` for everything in this session.
+
+        A faceted count asks Qdrant to group by ``source_name`` and return the
+        distinct values, so this costs one request regardless of how many
+        passages the session holds. The alternative -- paging through the whole
+        session to collect names client-side -- is the pattern this project
+        deliberately removed from the query path.
+        """
+        response = await self._client.facet(
+            collection_name=self._collection,
+            key="source_name",
+            facet_filter=self._session_filter(session_id),
+            limit=MAX_SOURCES_LISTED,
+            exact=True,
+        )
+        return [(str(hit.value), hit.count) for hit in response.hits]
 
     async def count_for_session(self, session_id: str) -> int:
         result = await self._client.count(
