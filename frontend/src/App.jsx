@@ -61,6 +61,14 @@ export default function App() {
     setHistory([]);
   }, [refresh]);
 
+  const toggleEntry = useCallback((id) => {
+    setHistory((current) =>
+      current.map((entry) =>
+        entry.id === id ? { ...entry, collapsed: !entry.collapsed } : entry,
+      ),
+    );
+  }, []);
+
   async function handleAsk(question) {
     const id = Date.now();
     const patch = (changes) =>
@@ -70,8 +78,10 @@ export default function App() {
 
     setBusy(true);
     setHistory((current) => [
-      { id, question, streaming: true, stage: "embedding", answer: "", citations: [] },
-      ...current,
+      { id, question, streaming: true, stage: "embedding", answer: "", citations: [], collapsed: false },
+      // Asking a new question folds the previous answers away, so a long
+      // session stays readable. They are one click from reopening.
+      ...current.map((entry) => ({ ...entry, collapsed: true })),
     ]);
 
     try {
@@ -147,7 +157,12 @@ export default function App() {
               passageCount={indexed.passageCount}
               onChanged={handleCleared}
             />
-            <AskPanel history={history} busy={busy} onAsk={handleAsk} />
+            <AskPanel
+              history={history}
+              busy={busy}
+              onAsk={handleAsk}
+              onToggle={toggleEntry}
+            />
           </main>
         )}
 

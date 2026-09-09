@@ -9,7 +9,7 @@ const EXAMPLES = [
 ];
 
 /** The question box and the running history of answers. */
-export default function AskPanel({ history, busy, onAsk }) {
+export default function AskPanel({ history, busy, onAsk, onToggle }) {
   const [question, setQuestion] = useState("");
 
   function submit(event) {
@@ -70,7 +70,7 @@ export default function AskPanel({ history, busy, onAsk }) {
       ) : (
         <div className="space-y-10">
           {history.map((entry) => (
-            <AnswerCard key={entry.id} entry={entry} />
+            <AnswerCard key={entry.id} entry={entry} onToggle={onToggle} />
           ))}
         </div>
       )}

@@ -10,15 +10,35 @@ import StageIndicator from "./StageIndicator.jsx";
  * both, which is the clearest way to see what hybrid retrieval contributes
  * over a plain vector search.
  */
-export default function AnswerCard({ entry }) {
+export default function AnswerCard({ entry, onToggle }) {
   const [activeCitation, setActiveCitation] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const { question, answer = "", citations = [], timings, error, streaming, stage } = entry;
 
-  return (
-    <article className="border-t border-slate-100 pt-8 dark:border-slate-800/70">
-      <h3 className="text-[15px] font-medium leading-6">{question}</h3>
+  const collapsed = Boolean(entry.collapsed);
+  const bodyId = `answer-${entry.id}`;
 
+  return (
+    <article className="border-t border-slate-100 pt-6 dark:border-slate-800/70">
+      <h3>
+        <button
+          type="button"
+          onClick={() => onToggle(entry.id)}
+          aria-expanded={!collapsed}
+          aria-controls={bodyId}
+          className="flex w-full items-start gap-2.5 rounded-lg text-left transition hover:opacity-80"
+        >
+          <Chevron open={!collapsed} />
+          <span className="flex-1 text-[15px] font-medium leading-6">{question}</span>
+          {collapsed && !error && timings && (
+            <span className="mt-0.5 shrink-0 font-mono text-[11px] text-slate-400 dark:text-slate-500">
+              {citations.length} src · {timings.total_ms} ms
+            </span>
+          )}
+        </button>
+      </h3>
+
+      <div id={bodyId} hidden={collapsed}>
       {error ? (
         <p className="mt-5 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
           {error}
@@ -71,7 +91,29 @@ export default function AnswerCard({ entry }) {
           {showDetail && <RetrievalDetail entry={entry} />}
         </>
       )}
+      </div>
     </article>
+  );
+}
+
+function Chevron({ open }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      className={`mt-1.5 h-3 w-3 shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${
+        open ? "rotate-90" : ""
+      }`}
+    >
+      <path
+        d="M4 2.5 L8 6 L4 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
