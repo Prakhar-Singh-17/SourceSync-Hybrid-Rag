@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     qdrant_collection: str = "sourcesync_hybrid"
     max_session_passages: int = 4_000
 
+    # How often to sweep passages whose session has expired. Nothing tells the
+    # server when a visitor leaves, so expiry is the boundary and this is what
+    # enforces it.
+    purge_interval_minutes: int = 10
+
     # --- retrieval tuning ----------------------------------------------------
     # How many passages each of the two searches returns before fusion. Larger
     # gives fusion and the reranker more to work with, at the cost of a bigger

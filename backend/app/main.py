@@ -6,8 +6,9 @@ its health endpoints -- it just reports 503 with the name of the missing setting
 instead of failing to boot, which is far easier to diagnose on a hosted deploy.
 """
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,19 +62,47 @@ async def lifespan(app: FastAPI):
             max_session_passages=settings.max_session_passages,
         )
 
-        # Sessions are temporary, so passages from dead sessions are garbage.
-        # Clearing them at startup keeps a free cluster from filling up over
-        # time without needing a scheduler or a background worker.
         try:
             await store.ensure_ready()
+            # One pass for anything that expired while the process was down.
             await store.purge_expired()
         except Exception:
             logger.exception("Could not prepare the Qdrant collection at startup.")
 
+        app.state.purge_task = asyncio.create_task(
+            _purge_expired_periodically(store, settings.purge_interval_minutes * 60)
+        )
+
     yield
 
+    purge_task: asyncio.Task | None = getattr(app.state, "purge_task", None)
+    if purge_task is not None:
+        purge_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await purge_task
     if app.state.qdrant is not None:
         await app.state.qdrant.close()
+
+
+async def _purge_expired_periodically(store: VectorStore, interval_seconds: int) -> None:
+    """Delete passages belonging to expired sessions, on an interval, forever.
+
+    Nothing tells the server when a visitor closes their tab, and deliberately
+    so: a browser-close hook fires on an ordinary page reload too, which would
+    throw away sources the visitor still wants. The session expiry is the
+    boundary instead, and this sweep is what enforces it while the process runs.
+
+    Each passage stores the expiry of the session that created it, so a sweep is
+    a single filtered delete rather than any bookkeeping. Failures are logged and
+    the loop continues -- a temporary Qdrant problem should not end cleanup for
+    the lifetime of the process.
+    """
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await store.purge_expired()
+        except Exception:
+            logger.exception("Scheduled purge of expired passages failed; will retry.")
 
 
 app = FastAPI(
