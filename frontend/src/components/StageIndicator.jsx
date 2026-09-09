@@ -29,19 +29,19 @@ export default function StageIndicator({ stage }) {
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 active
-                  ? "animate-pulse bg-blue-500 dark:bg-blue-400"
+                  ? "animate-pulse bg-indigo-500 dark:bg-indigo-400"
                   : done
-                    ? "bg-zinc-400 dark:bg-zinc-500"
-                    : "bg-zinc-200 dark:bg-zinc-800"
+                    ? "bg-slate-400 dark:bg-slate-500"
+                    : "bg-slate-200 dark:bg-slate-800"
               }`}
             />
             <span
               className={`text-xs ${
                 active
-                  ? "text-zinc-900 dark:text-zinc-100"
+                  ? "text-slate-900 dark:text-slate-100"
                   : done
-                    ? "text-zinc-400 dark:text-zinc-500"
-                    : "text-zinc-300 dark:text-zinc-700"
+                    ? "text-slate-400 dark:text-slate-500"
+                    : "text-slate-300 dark:text-slate-700"
               }`}
             >
               {label}
@@ -49,7 +49,7 @@ export default function StageIndicator({ stage }) {
             {index < STAGES.length - 1 && (
               <span
                 className={`ml-0.5 h-px w-4 ${
-                  done ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-200 dark:bg-zinc-800"
+                  done ? "bg-slate-300 dark:bg-slate-700" : "bg-slate-200 dark:bg-slate-800"
                 }`}
               />
             )}

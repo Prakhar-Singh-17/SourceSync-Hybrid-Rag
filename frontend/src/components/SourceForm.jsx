@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 import { ingestDocument, ingestRepository } from "../api.js";
+import ProgressBar from "./ProgressBar.jsx";
 
 /**
  * Adding a source, in two sizes.
@@ -51,14 +52,14 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
           hero ? "px-4 py-8" : "px-3 py-5"
         } ${
           busy === "document"
-            ? "border-blue-500 bg-blue-500/5"
-            : "border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+            ? "border-indigo-500 bg-indigo-500/5"
+            : "border-slate-300 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-900"
         }`}
       >
         <span className={hero ? "text-sm font-medium" : "text-[13px] font-medium"}>
           {busy === "document" ? "Indexing…" : "Upload a document"}
         </span>
-        <span className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <span className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {hero ? "PDF, TXT or Markdown · up to 15 MB" : "PDF, TXT or MD"}
         </span>
         <input
@@ -72,11 +73,11 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
       </label>
 
       <div className="my-3 flex items-center gap-3">
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-        <span className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+        <span className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
           or
         </span>
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
       </div>
 
       <form onSubmit={handleRepository}>
@@ -88,14 +89,14 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
           onChange={(event) => setUrl(event.target.value)}
           placeholder="github.com/owner/repository"
           aria-label="Public GitHub repository URL"
-          className={`w-full rounded-lg border border-zinc-200 bg-white text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:border-blue-400 dark:focus:ring-blue-400/10 ${
+          className={`w-full rounded-lg border border-slate-200 bg-white text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/10 ${
             hero ? "px-3.5 py-2.5 text-sm" : "px-3 py-2 text-[13px]"
           }`}
         />
         <button
           type="submit"
           disabled={Boolean(busy) || url.trim().length === 0}
-          className={`mt-2 w-full rounded-lg bg-zinc-900 font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 ${
+          className={`mt-2 w-full rounded-lg bg-indigo-600 font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-indigo-500 dark:hover:bg-indigo-400 ${
             hero ? "py-2.5 text-sm" : "py-2 text-[13px]"
           }`}
         >
@@ -110,9 +111,14 @@ export default function SourceForm({ variant = "panel", onIndexed }) {
       )}
 
       {busy && (
-        <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-          Large repositories can take a minute to embed.
-        </p>
+        <ProgressBar
+          label={
+            busy === "document"
+              ? "Extracting text and embedding passages"
+              : "Downloading, filtering and embedding files"
+          }
+          hint={busy === "repository" ? "Large repositories can take a minute." : null}
+        />
       )}
     </div>
   );

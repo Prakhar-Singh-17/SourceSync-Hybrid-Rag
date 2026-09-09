@@ -26,7 +26,7 @@ export default function AskPanel({ history, busy, onAsk }) {
           answer. It sits below the navbar, which is 57px tall. */}
       <form
         onSubmit={submit}
-        className="sticky top-[57px] z-[5] -mt-2 bg-white pb-4 pt-2 dark:bg-zinc-950"
+        className="sticky top-[57px] z-[5] -mt-2 bg-white pb-4 pt-2 dark:bg-slate-950"
       >
         <div className="flex gap-2">
           <input
@@ -36,12 +36,12 @@ export default function AskPanel({ history, busy, onAsk }) {
             autoFocus
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="Ask anything about your sources…"
-            className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:placeholder:text-zinc-600 dark:focus:border-blue-400 dark:focus:ring-blue-400/10"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-800 dark:bg-slate-900 dark:placeholder:text-slate-600 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/10"
           />
           <button
             type="submit"
             disabled={busy || question.trim().length < 3}
-            className="shrink-0 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="shrink-0 rounded-xl bg-indigo-600 px-5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-indigo-500 dark:hover:bg-indigo-400"
           >
             {busy ? "…" : "Ask"}
           </button>
@@ -54,7 +54,7 @@ export default function AskPanel({ history, busy, onAsk }) {
                 key={example}
                 type="button"
                 onClick={() => setQuestion(example)}
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-100"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-100"
               >
                 {example}
               </button>
@@ -64,7 +64,7 @@ export default function AskPanel({ history, busy, onAsk }) {
       </form>
 
       {history.length === 0 ? (
-        <p className="mt-8 text-sm leading-6 text-zinc-400 dark:text-zinc-500">
+        <p className="mt-8 text-sm leading-6 text-slate-400 dark:text-slate-500">
           Ask a question and the answer will appear here, with the passages it drew on.
         </p>
       ) : (

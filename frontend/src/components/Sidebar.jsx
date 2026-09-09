@@ -28,10 +28,10 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
+        <h2 className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
           Sources
         </h2>
-        <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">
+        <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
           {passageCount} passages
         </span>
       </div>
@@ -45,7 +45,7 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
             <span className="truncate" title={source.name}>
               {source.name}
             </span>
-            <span className="ml-auto shrink-0 font-mono text-[11px] text-zinc-400 dark:text-zinc-500">
+            <span className="ml-auto shrink-0 font-mono text-[11px] text-slate-400 dark:text-slate-500">
               {source.passage_count}
             </span>
           </li>
@@ -58,7 +58,7 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="w-full rounded-lg border border-zinc-200 py-2 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 lg:hidden dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-100"
+          className="w-full rounded-lg border border-slate-200 py-2 text-[13px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 lg:hidden dark:border-slate-800 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-100"
         >
           {open ? "Done" : "Add another source"}
         </button>
@@ -71,7 +71,7 @@ export default function Sidebar({ sources, passageCount, onChanged }) {
         type="button"
         onClick={handleClear}
         disabled={clearing}
-        className="mt-4 text-xs text-zinc-400 underline decoration-zinc-200 underline-offset-4 transition hover:text-red-600 disabled:opacity-50 dark:text-zinc-500 dark:decoration-zinc-700 dark:hover:text-red-400"
+        className="mt-4 text-xs text-slate-400 underline decoration-slate-200 underline-offset-4 transition hover:text-red-600 disabled:opacity-50 dark:text-slate-500 dark:decoration-slate-700 dark:hover:text-red-400"
       >
         {clearing ? "Clearing…" : "Clear all sources"}
       </button>

@@ -12,7 +12,7 @@ export default function EmptyState({ onIndexed }) {
   return (
     <div className="mx-auto max-w-md py-6 text-center">
       <h2 className="text-xl font-medium tracking-tight">Add your first source</h2>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
         Upload a document or point at a public GitHub repository. Questions are answered only from
         what you index here.
       </p>
@@ -21,7 +21,7 @@ export default function EmptyState({ onIndexed }) {
         <SourceForm variant="hero" onIndexed={onIndexed} />
       </div>
 
-      <p className="mt-8 text-xs leading-5 text-zinc-400 dark:text-zinc-500">
+      <p className="mt-8 text-xs leading-5 text-slate-400 dark:text-slate-500">
         Nothing is stored against an account. Your session and everything in it expires after 60
         minutes.
       </p>

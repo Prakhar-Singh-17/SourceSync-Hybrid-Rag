@@ -16,7 +16,7 @@ export default function AnswerCard({ entry }) {
   const { question, answer = "", citations = [], timings, error, streaming, stage } = entry;
 
   return (
-    <article className="border-t border-zinc-100 pt-8 dark:border-zinc-800/70">
+    <article className="border-t border-slate-100 pt-8 dark:border-slate-800/70">
       <h3 className="text-[15px] font-medium leading-6">{question}</h3>
 
       {error ? (
@@ -32,12 +32,12 @@ export default function AnswerCard({ entry }) {
           )}
 
           {answer && (
-            <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-slate-700 dark:text-slate-300">
               <CitedText text={answer} citations={citations} onHover={setActiveCitation} />
               {streaming && (
                 <span
                   aria-hidden="true"
-                  className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-pulse bg-blue-500 dark:bg-blue-400"
+                  className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-pulse bg-indigo-500 dark:bg-indigo-400"
                 />
               )}
             </p>
@@ -56,11 +56,11 @@ export default function AnswerCard({ entry }) {
           )}
 
           {timings && (
-            <div className="mt-5 flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">
+            <div className="mt-5 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
               <button
                 type="button"
                 onClick={() => setShowDetail((open) => !open)}
-                className="underline decoration-zinc-200 underline-offset-4 transition hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-zinc-100"
+                className="underline decoration-slate-200 underline-offset-4 transition hover:text-slate-900 dark:decoration-slate-700 dark:hover:text-slate-100"
               >
                 {showDetail ? "Hide detail" : "How was this retrieved?"}
               </button>
@@ -89,13 +89,22 @@ function CitedText({ text, citations, onHover }) {
         key={index}
         onMouseEnter={() => onHover(number)}
         onMouseLeave={() => onHover(null)}
-        className="mx-0.5 cursor-default font-mono text-[10px] font-medium text-blue-600 dark:text-blue-400"
+        className="mx-0.5 cursor-default font-mono text-[10px] font-medium text-indigo-600 dark:text-indigo-400"
       >
         {number}
       </sup>
     );
   });
 }
+
+// The two retrievers get distinct tints so it is legible at a glance whether a
+// passage was found by meaning, by wording, or by both. This is the one place
+// colour carries information rather than decoration, which is why the rest of
+// the palette stays neutral.
+const BADGE_TINTS = {
+  Semantic: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+  Keyword: "bg-pink-50 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300",
+};
 
 function CitationRow({ citation, active }) {
   const foundBy = [
@@ -106,11 +115,11 @@ function CitationRow({ citation, active }) {
   return (
     <li
       className={`-mx-3 rounded-lg px-3 py-2.5 transition ${
-        active ? "bg-blue-50 dark:bg-blue-500/10" : ""
+        active ? "bg-indigo-50 dark:bg-indigo-500/10" : ""
       }`}
     >
       <div className="flex items-baseline gap-2.5">
-        <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400">
+        <span className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
           {citation.number}
         </span>
         <span className="truncate text-[13px] font-medium">{citation.location}</span>
@@ -119,14 +128,14 @@ function CitationRow({ citation, active }) {
             <span
               key={label}
               title="Which search returned this passage"
-              className="rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400 dark:border-zinc-800 dark:text-zinc-500"
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${BADGE_TINTS[label]}`}
             >
               {label}
             </span>
           ))}
         </span>
       </div>
-      <p className="mt-1.5 pl-[22px] text-[13px] leading-5 text-zinc-500 dark:text-zinc-400">
+      <p className="mt-1.5 pl-[22px] text-[13px] leading-5 text-slate-500 dark:text-slate-400">
         {citation.snippet}
       </p>
     </li>
@@ -143,7 +152,7 @@ function RetrievalDetail({ entry }) {
   ];
 
   return (
-    <div className="mt-4 rounded-xl bg-zinc-50 p-4 text-[13px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+    <div className="mt-4 rounded-xl bg-slate-50 p-4 text-[13px] text-slate-500 dark:bg-slate-900 dark:text-slate-400">
       <p className="leading-6">
         Semantic search returned <Value>{dense_hits}</Value> passages, keyword search returned{" "}
         <Value>{sparse_hits}</Value>. Fusion merged them into{" "}
@@ -154,10 +163,10 @@ function RetrievalDetail({ entry }) {
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
         {stages.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            <dt className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
               {label}
             </dt>
-            <dd className="mt-0.5 font-mono text-zinc-700 dark:text-zinc-300">{value} ms</dd>
+            <dd className="mt-0.5 font-mono text-slate-700 dark:text-slate-300">{value} ms</dd>
           </div>
         ))}
       </dl>
@@ -166,5 +175,5 @@ function RetrievalDetail({ entry }) {
 }
 
 function Value({ children }) {
-  return <span className="font-mono text-zinc-900 dark:text-zinc-100">{children}</span>;
+  return <span className="font-mono text-slate-900 dark:text-slate-100">{children}</span>;
 }

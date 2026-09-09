@@ -1,9 +1,23 @@
 @import "tailwindcss";
 
 /* Tailwind v4 is configured in CSS. This is the whole design system: two
-   typefaces and one accent. Everything else is a stock Tailwind utility, so
-   there is no bespoke CSS to keep in sync with the markup. */
+   typefaces and one custom animation. Everything else is a stock Tailwind
+   utility, so there is no bespoke CSS to keep in sync with the markup. */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Sweeps a short bar across its track for work of unknown duration. The
+     travel is expressed in multiples of the bar's own width: it is 40% of the
+     track, so -100% parks it just off the left edge and 250% clears the right. */
+  --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
+
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
 }
