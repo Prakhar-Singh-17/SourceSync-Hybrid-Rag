@@ -5,8 +5,8 @@ import { useState } from "react";
  *
  * The retrieval detail is the point of the whole interface: a citation shows
  * whether its passage was found by semantic search, by keyword search, or by
- * both, which is the clearest way to see what hybrid retrieval is actually
- * contributing over a plain vector search.
+ * both, which is the clearest way to see what hybrid retrieval contributes
+ * over a plain vector search.
  */
 export default function AnswerCard({ entry }) {
   const [activeCitation, setActiveCitation] = useState(null);
@@ -14,26 +14,26 @@ export default function AnswerCard({ entry }) {
   const { question, answer, citations = [], timings, error } = entry;
 
   return (
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
-      <h3 className="text-base font-semibold text-slate-100">{question}</h3>
+    <article className="border-t border-zinc-100 pt-8 dark:border-zinc-800/70">
+      <h3 className="text-[15px] font-medium leading-6">{question}</h3>
 
       {entry.pending ? (
-        <p className="mt-4 flex items-center gap-2 text-sm text-slate-400">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-          Searching, reranking and drafting an answer...
+        <p className="mt-5 flex items-center gap-2.5 text-sm text-zinc-400 dark:text-zinc-500">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-400 dark:bg-zinc-500" />
+          Searching, reranking and drafting
         </p>
       ) : error ? (
-        <p className="mt-4 rounded-lg border border-rose-900/60 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
+        <p className="mt-5 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </p>
       ) : (
         <>
-          <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-slate-200">
+          <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">
             <CitedText text={answer} citations={citations} onHover={setActiveCitation} />
           </p>
 
           {citations.length > 0 && (
-            <ol className="mt-6 space-y-2 border-t border-slate-800 pt-5">
+            <ol className="mt-8 space-y-px">
               {citations.map((citation) => (
                 <CitationRow
                   key={citation.number}
@@ -45,15 +45,15 @@ export default function AnswerCard({ entry }) {
           )}
 
           {timings && (
-            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+            <div className="mt-5 flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">
               <button
                 type="button"
                 onClick={() => setShowDetail((open) => !open)}
-                className="font-medium text-slate-400 underline-offset-4 hover:text-emerald-300 hover:underline"
+                className="underline decoration-zinc-200 underline-offset-4 transition hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-zinc-100"
               >
-                {showDetail ? "Hide" : "How was this retrieved?"}
+                {showDetail ? "Hide detail" : "How was this retrieved?"}
               </button>
-              <span>{timings.total_ms} ms total</span>
+              <span className="font-mono">{timings.total_ms} ms</span>
             </div>
           )}
 
@@ -78,7 +78,7 @@ function CitedText({ text, citations, onHover }) {
         key={index}
         onMouseEnter={() => onHover(number)}
         onMouseLeave={() => onHover(null)}
-        className="mx-0.5 cursor-default rounded bg-emerald-400/15 px-1 py-0.5 text-[11px] font-semibold text-emerald-300"
+        className="mx-0.5 cursor-default font-mono text-[10px] font-medium text-blue-600 dark:text-blue-400"
       >
         {number}
       </sup>
@@ -88,29 +88,36 @@ function CitedText({ text, citations, onHover }) {
 
 function CitationRow({ citation, active }) {
   const foundBy = [
-    citation.dense_rank !== null && "semantic",
-    citation.sparse_rank !== null && "keyword",
+    citation.dense_rank !== null && "Semantic",
+    citation.sparse_rank !== null && "Keyword",
   ].filter(Boolean);
 
   return (
     <li
-      className={`rounded-lg border px-3 py-2.5 transition ${
-        active ? "border-emerald-400/60 bg-emerald-400/5" : "border-slate-800 bg-slate-950/40"
+      className={`-mx-3 rounded-lg px-3 py-2.5 transition ${
+        active ? "bg-blue-50 dark:bg-blue-500/10" : ""
       }`}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+      <div className="flex items-baseline gap-2.5">
+        <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400">
           {citation.number}
         </span>
-        <span className="break-all text-sm font-medium text-slate-200">{citation.location}</span>
-        <span
-          className="ml-auto text-[11px] text-slate-500"
-          title="Which of the two searches returned this passage"
-        >
-          found by {foundBy.join(" + ") || "fusion"}
+        <span className="truncate text-[13px] font-medium">{citation.location}</span>
+        <span className="ml-auto flex shrink-0 gap-1">
+          {foundBy.map((label) => (
+            <span
+              key={label}
+              title="Which search returned this passage"
+              className="rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400 dark:border-zinc-800 dark:text-zinc-500"
+            >
+              {label}
+            </span>
+          ))}
         </span>
       </div>
-      <p className="mt-1.5 text-xs leading-5 text-slate-400">{citation.snippet}</p>
+      <p className="mt-1.5 pl-[22px] text-[13px] leading-5 text-zinc-500 dark:text-zinc-400">
+        {citation.snippet}
+      </p>
     </li>
   );
 }
@@ -118,32 +125,35 @@ function CitationRow({ citation, active }) {
 function RetrievalDetail({ entry }) {
   const { timings, candidates_considered, dense_hits, sparse_hits, reranked } = entry;
   const stages = [
-    ["Embed question", timings.embed_ms],
-    ["Search (dense + sparse)", timings.search_ms],
+    ["Embed", timings.embed_ms],
+    ["Search", timings.search_ms],
     ["Rerank", timings.rerank_ms],
-    ["Generate answer", timings.generate_ms],
+    ["Generate", timings.generate_ms],
   ];
 
   return (
-    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-400">
-      <p className="leading-5">
-        Semantic search returned <strong className="text-slate-200">{dense_hits}</strong> passages and
-        keyword search returned <strong className="text-slate-200">{sparse_hits}</strong>. Reciprocal rank
-        fusion merged them into{" "}
-        <strong className="text-slate-200">{candidates_considered}</strong> candidates,
-        {reranked
-          ? " which the model then reranked"
-          : " which were used in fusion order (reranking was skipped or unavailable)"}
-        , keeping the top <strong className="text-slate-200">{entry.citations.length}</strong> as context.
+    <div className="mt-4 rounded-xl bg-zinc-50 p-4 text-[13px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+      <p className="leading-6">
+        Semantic search returned <Value>{dense_hits}</Value> passages, keyword search returned{" "}
+        <Value>{sparse_hits}</Value>. Fusion merged them into{" "}
+        <Value>{candidates_considered}</Value> candidates
+        {reranked ? ", reranked" : " (used in fusion order)"}, keeping the top{" "}
+        <Value>{entry.citations.length}</Value> as context.
       </p>
-      <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
         {stages.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-slate-500">{label}</dt>
-            <dd className="font-mono text-slate-300">{value} ms</dd>
+            <dt className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+              {label}
+            </dt>
+            <dd className="mt-0.5 font-mono text-zinc-700 dark:text-zinc-300">{value} ms</dd>
           </div>
         ))}
       </dl>
     </div>
   );
+}
+
+function Value({ children }) {
+  return <span className="font-mono text-zinc-900 dark:text-zinc-100">{children}</span>;
 }
