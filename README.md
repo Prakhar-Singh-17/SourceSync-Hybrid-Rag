@@ -63,6 +63,11 @@ six come out — which also keeps the answer prompt small.
 The interface shows all of this. Each citation is labelled with which searches
 found it, and "How was this retrieved?" expands to per-stage timings.
 
+**The answer streams.** The pipeline emits an event as each stage begins, so the
+progress indicator reflects work actually happening rather than a timer. The
+citations are sent the moment retrieval finishes — roughly a second before the
+first word of the answer — so the wait is never a blank screen.
+
 ---
 
 ## Does it actually work better?
@@ -100,32 +105,47 @@ obvious next step.
 
 ---
 
-## Layout
+## Reading the code
+
+The codebase is arranged in three layers, and the split is the point:
 
 ```
 backend/app/
   core/         Pure logic. No network, no database, no FastAPI.
-    chunking.py     Splitting prose and code into overlapping passages
-    sparse.py       Tokenising and BM25 term-frequency vectors
-    fusion.py       Reciprocal Rank Fusion
-    documents.py    PDF and text extraction, page by page
-    repository.py   GitHub URL validation and archive filtering
   services/     One class per external system.
-    embeddings.py   Gemini dense embeddings
-    vectorstore.py  Qdrant: storage and both searches
-    llm.py          Gemini reranking and answering
-    github.py       Repository archive download
-    pipeline.py     The pipeline, written down in order
   routers/      HTTP only. No logic.
 ```
 
-The split is the point: everything in `core/` is deterministic and tested
-offline with no API key, which is where the retrieval maths lives. Anything that
-can fail because a network is involved sits behind a class in `services/`.
+Everything in `core/` is deterministic and tested offline with no API key, which
+is where the retrieval maths lives. Anything that can fail because a network is
+involved sits behind a class in `services/`.
+
+If you want to follow how it actually works, read these five files in order:
+
+1. **`services/pipeline.py`** — the whole flow written down in sequence, from
+   bytes to a cited answer. Start here; everything else is a detail this file
+   calls into.
+2. **`core/fusion.py`** — Reciprocal Rank Fusion, about six lines. The heart of
+   the retrieval strategy.
+3. **`core/sparse.py`** — how text becomes a BM25 term-frequency vector, and why
+   the term ids are CRC32 rather than Python's `hash`.
+4. **`services/vectorstore.py`** — how a passage is stored under two named
+   vectors, and how the two searches and the session isolation work in Qdrant.
+5. **`services/llm.py`** — the two Gemini calls: reranking, and the streamed
+   answer with its citation format.
+
+`core/chunking.py`, `core/documents.py` and `core/repository.py` cover the
+ingestion side — splitting text, reading PDFs page by page, and filtering a
+repository archive down to files worth indexing.
 
 ```bash
-cd backend && python -m unittest discover -s tests -v   # 40 tests, no credentials needed
+cd backend && python -m unittest discover -s tests -v   # 50 tests, no credentials needed
 ```
+
+The tests run without credentials because of that layering. `tests/test_core.py`
+covers the pure functions directly, and `tests/test_pipeline.py` runs the whole
+query flow against stand-in services — which is only possible because the
+pipeline receives them as constructor arguments instead of building them itself.
 
 ---
 
