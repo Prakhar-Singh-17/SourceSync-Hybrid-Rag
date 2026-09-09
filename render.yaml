@@ -2,27 +2,52 @@ services:
   - type: web
     name: sourcesync-api
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
+      # Set these three in the Render dashboard.
       - key: QDRANT_URL
         sync: false
       - key: QDRANT_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+
+      # Render generates this once and keeps it stable across deploys, so
+      # sessions survive a restart. Do not replace it with a literal value.
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # Free-tier request quotas are per model per day. The full gemini-3.5-flash
+      # allows only 20 generate calls a day, which is about ten questions once
+      # reranking is counted; the lite model has far more headroom.
       - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+        value: gemini-3.5-flash-lite
       - key: EMBEDDING_MODEL
         value: gemini-embedding-2
+      # 768 instead of the model default of 3072: four times less storage per
+      # passage, which is what keeps the index inside a free Qdrant cluster.
+      - key: EMBEDDING_DIMENSIONS
+        value: "768"
+      # -1 leaves the model on its own thinking default. The -lite models reject
+      # an explicit budget of 0.
+      - key: ANSWER_THINKING_BUDGET
+        value: "-1"
+
+      # Named dense + sparse vectors. A collection created by a pre-hybrid
+      # version has an incompatible layout and cannot be reused.
       - key: QDRANT_COLLECTION
-        value: sourcesync_chunks
+        value: sourcesync_hybrid
+
+      # Must be the deployed frontend URL, comma separated if more than one.
       - key: CORS_ORIGINS
         sync: false
       - key: SESSION_TTL_MINUTES
         value: "60"
+      # Required for the cross-origin session cookie over HTTPS.
       - key: SESSION_COOKIE_SECURE
         value: "true"
 
